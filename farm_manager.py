@@ -3,17 +3,13 @@ import time
 import json
 import logging
 from datetime import datetime
-from device_controller import DeviceController
-from task_scheduler import TaskScheduler
-from profile_manager import ProfileManager
-from google_login import GoogleLoginManager
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
 
 class BotFarmManager:
     def __init__(self, config_file="config/farm_config.json"):
-        logger.info("🔄 Initializing Bot Farm Manager...")
+        logger.info("Initializing Bot Farm Manager...")
         
         self.config = self.load_config(config_file)
         self.devices = {}
@@ -23,6 +19,11 @@ class BotFarmManager:
         self.is_running = False
         
         try:
+            # Import managers here to avoid circular imports
+            from task_scheduler import TaskScheduler
+            from profile_manager import ProfileManager
+            from google_login import GoogleLoginManager
+            
             # Initialize managers
             self.profile_manager = ProfileManager()
             self.task_scheduler = TaskScheduler()
@@ -43,47 +44,56 @@ class BotFarmManager:
             self.farm_thread = None
             self.stats_thread = None
             
-            logger.info("✅ Bot Farm Manager initialized successfully")
+            logger.info("Bot Farm Manager initialized successfully")
             
         except Exception as e:
-            logger.error(f"❌ Failed to initialize Bot Farm Manager: {e}")
-            raise
+            logger.error("Failed to initialize Bot Farm Manager: %s", e)
+            # Set managers to None but don't raise to allow app to start
+            self.profile_manager = None
+            self.task_scheduler = None
+            self.google_login_manager = None
 
     def load_config(self, config_file):
         """Load configuration from JSON file"""
         try:
             with open(config_file, 'r') as f:
                 config = json.load(f)
-            logger.info(f"📁 Loaded configuration from {config_file}")
+            logger.info("Loaded configuration from %s", config_file)
             return config
         except FileNotFoundError:
-            logger.warning(f"⚠️ Config file {config_file} not found, using defaults")
+            logger.warning("Config file %s not found, using defaults", config_file)
             return {
-                "max_concurrent_devices": 5,
-                "task_interval_min": 60,
-                "task_interval_max": 300,
+                "max_concurrent_devices": 2,
+                "task_interval_min": 180,
+                "task_interval_max": 600,
                 "rotation_enabled": True,
-                "proxy_rotation": True,
+                "proxy_rotation": False,
+                "headless": True,
                 "save_session": True
             }
         except Exception as e:
-            logger.error(f"❌ Error loading config: {e}")
+            logger.error("Error loading config: %s", e)
             return {
-                "max_concurrent_devices": 5,
-                "task_interval_min": 60,
-                "task_interval_max": 300,
+                "max_concurrent_devices": 2,
+                "task_interval_min": 180,
+                "task_interval_max": 600,
                 "rotation_enabled": True,
-                "proxy_rotation": True,
+                "proxy_rotation": False,
+                "headless": True,
                 "save_session": True
             }
 
     def update_google_accounts(self, accounts):
         """Update Google accounts list"""
         self.google_accounts = accounts
-        logger.info(f"📧 Updated Google accounts: {len(accounts)} accounts")
+        logger.info("Updated Google accounts: %d accounts", len(accounts))
 
     def initialize_devices(self, devices_config):
         """Initialize devices from configuration"""
+        if not self.profile_manager:
+            logger.error("Profile manager not initialized")
+            return
+            
         self.devices.clear()
         
         for i, device_config in enumerate(devices_config):
@@ -95,12 +105,16 @@ class BotFarmManager:
             else:
                 device_config['google_account'] = None
             
-            # Pass profile_manager to device controller
-            self.devices[device_id] = DeviceController(device_id, device_config, self.profile_manager)
-            logger.info(f"✅ Device {device_id} initialized")
+            try:
+                from device_controller import DeviceController
+                # Pass profile_manager to device controller
+                self.devices[device_id] = DeviceController(device_id, device_config, self.profile_manager)
+                logger.info("Device %s initialized", device_id)
+            except Exception as e:
+                logger.error("Failed to initialize device %s: %s", device_id, e)
         
         self.stats['total_devices'] = len(self.devices)
-        logger.info(f"🎯 Total devices initialized: {len(self.devices)}")
+        logger.info("Total devices initialized: %d", len(self.devices))
 
     def start_device(self, device_id, task_config):
         """Start a single device with specific task"""
@@ -123,11 +137,11 @@ class BotFarmManager:
                 monitor_thread.daemon = True
                 monitor_thread.start()
                 
-                logger.info(f"🚀 Device {device_id} started successfully")
+                logger.info("Device %s started successfully", device_id)
                 return True
                 
         except Exception as e:
-            logger.error(f"💥 Error starting device {device_id}: {e}")
+            logger.error("Error starting device %s: %s", device_id, e)
         
         return False
 
@@ -139,7 +153,7 @@ class BotFarmManager:
             time.sleep(10)
             
             if not device.is_healthy():
-                logger.warning(f"⚠️ Device {device_id} not healthy, restarting...")
+                logger.warning("Device %s not healthy, restarting...", device_id)
                 device.restart_session()
         
         # Device completed
@@ -155,12 +169,12 @@ class BotFarmManager:
             else:
                 self.stats['google_logins_failed'] += 1
             
-            logger.info(f"✅ Device {device_id} completed task")
+            logger.info("Device %s completed task", device_id)
 
     def start_farm(self, devices_config, tasks_config):
         """Start the entire bot farm"""
         if self.is_running:
-            logger.warning("⚠️ Farm is already running")
+            logger.warning("Farm is already running")
             return False
 
         try:
@@ -169,7 +183,9 @@ class BotFarmManager:
             
             # Initialize devices and tasks
             self.initialize_devices(devices_config)
-            self.task_scheduler.load_tasks_config(tasks_config)
+            
+            if self.task_scheduler:
+                self.task_scheduler.load_tasks_config(tasks_config)
             
             # Start farm loop
             self.farm_thread = threading.Thread(target=self._farm_loop)
@@ -181,11 +197,11 @@ class BotFarmManager:
             self.stats_thread.daemon = True
             self.stats_thread.start()
             
-            logger.info("🏁 Bot Farm started successfully")
+            logger.info("Bot Farm started successfully")
             return True
             
         except Exception as e:
-            logger.error(f"💥 Failed to start farm: {e}")
+            logger.error("Failed to start farm: %s", e)
             self.is_running = False
             return False
 
@@ -193,31 +209,30 @@ class BotFarmManager:
         """Main farm loop dengan device-task mapping"""
         while self.is_running:
             try:
+                # Use is_active for simplicity in Railway environment
                 available_devices = [
                     device_id for device_id, device in self.devices.items()
-                    if not device.is_running()
+                    if not device.is_active
                 ]
                 
-                pending_tasks = self.task_scheduler.get_pending_tasks()
+                if self.task_scheduler:
+                    pending_tasks = self.task_scheduler.get_pending_tasks()
+                else:
+                    pending_tasks = []
                 
-                for task in pending_tasks:
-                    # Cari device yang tersedia untuk task ini
-                    target_device = task.get('device_id')
-                    if target_device and target_device in available_devices:
-                        if self.start_device(target_device, task):
-                            self.task_scheduler.mark_task_assigned(task['id'])
-                            available_devices.remove(target_device)
-                    elif available_devices:
-                        # Assign ke device mana saja yang tersedia
-                        device_id = available_devices.pop(0)
+                # Simple task assignment
+                for i, task in enumerate(pending_tasks[:len(available_devices)]):
+                    if i < len(available_devices):
+                        device_id = available_devices[i]
                         if self.start_device(device_id, task):
-                            self.task_scheduler.mark_task_assigned(task['id'])
+                            if self.task_scheduler:
+                                self.task_scheduler.mark_task_assigned(task['id'])
                 
-                time.sleep(5)
+                time.sleep(10)  # Longer sleep for Railway environment
                 
             except Exception as e:
-                logger.error(f"💥 Error in farm loop: {e}")
-                time.sleep(10)
+                logger.error("Error in farm loop: %s", e)
+                time.sleep(30)  # Even longer sleep on error
 
     def _stats_monitor(self):
         """Monitor and log statistics"""
@@ -230,28 +245,28 @@ class BotFarmManager:
                 time.sleep(30)
                 
             except Exception as e:
-                logger.error(f"💥 Error in stats monitor: {e}")
+                logger.error("Error in stats monitor: %s", e)
                 time.sleep(30)
 
     def stop_farm(self):
         """Stop the bot farm"""
         if not self.is_running:
-            logger.info("ℹ️ Farm is not running")
+            logger.info("Farm is not running")
             return
             
         self.is_running = False
-        logger.info("🛑 Stopping Bot Farm...")
+        logger.info("Stopping Bot Farm...")
         
         # Stop all devices
-        for device in self.devices.values():
+        for device_id, device in self.devices.items():
             try:
                 device.stop_session()
             except Exception as e:
-                logger.error(f"❌ Error stopping device: {e}")
+                logger.error("Error stopping device %s: %s", device_id, e)
         
         self.active_sessions = 0
         self.stats['active_devices'] = 0
-        logger.info("✅ Bot Farm stopped")
+        logger.info("Bot Farm stopped")
 
     def get_farm_stats(self):
         """Get current farm statistics"""
@@ -273,7 +288,7 @@ class BotFarmManager:
             try:
                 devices_status[device_id] = device.get_status()
             except Exception as e:
-                logger.error(f"❌ Error getting status for {device_id}: {e}")
+                logger.error("Error getting status for %s: %s", device_id, e)
                 devices_status[device_id] = {
                     'device_id': device_id,
                     'is_active': False,
@@ -286,9 +301,13 @@ class BotFarmManager:
     def add_task(self, task_config):
         """Add new task to scheduler"""
         try:
-            task_id = self.task_scheduler.add_task(task_config)
-            logger.info(f"➕ Added new task: {task_id}")
-            return task_id
+            if self.task_scheduler:
+                task_id = self.task_scheduler.add_task(task_config)
+                logger.info("Added new task: %s", task_id)
+                return task_id
+            else:
+                logger.error("Task scheduler not initialized")
+                return None
         except Exception as e:
-            logger.error(f"❌ Error adding task: {e}")
+            logger.error("Error adding task: %s", e)
             return None
