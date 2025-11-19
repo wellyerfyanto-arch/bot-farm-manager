@@ -1,18 +1,37 @@
 FROM python:3.9-slim
 
-# Install Chrome dependencies
-RUN apt-get update && apt-get install -y \
-    wget gnupg libnss3-dev libgconf-2-4 libxss1 \
-    libappindicator1 libindicator7 fonts-liberation xvfb
+# Set environment variables untuk non-interactive installation
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
 
-# Install Chrome
-RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' >> /etc/apt/sources.list.d/google-chrome.list \
-    && apt-get update \
-    && apt-get install -y google-chrome-stable
+# Update package lists dengan error handling
+RUN apt-get update --fix-missing || true
+
+# Install basic dependencies dulu
+RUN apt-get install -y --no-install-recommends \
+    ca-certificates \
+    wget \
+    gnupg \
+    curl \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add Google Chrome repository
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list
+
+# Update lagi setelah menambah repository
+RUN apt-get update --fix-missing
+
+# Install Chrome dengan dependencies minimal
+RUN apt-get install -y --no-install-recommends \
+    google-chrome-stable \
+    fonts-liberation \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Chromedriver
-RUN wget -q -O /tmp/chromedriver.zip https://chromedriver.storage.googleapis.com/$(wget -q -O - https://chromedriver.storage.googleapis.com/LATEST_RELEASE)/chromedriver_linux64.zip \
+RUN CHROMEDRIVER_VERSION=$(curl -s https://chromedriver.storage.googleapis.com/LATEST_RELEASE) \
+    && wget -q -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip" \
     && unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
     && chmod +x /usr/local/bin/chromedriver \
     && rm /tmp/chromedriver.zip
@@ -20,16 +39,26 @@ RUN wget -q -O /tmp/chromedriver.zip https://chromedriver.storage.googleapis.com
 # Set environment variables
 ENV CHROME_BIN=/usr/bin/google-chrome
 ENV CHROME_PATH=/usr/bin/google-chrome
+ENV CHROMEDRIVER_PATH=/usr/local/bin/chromedriver
 
-# Copy aplikasi
-COPY . /app
+# Create app directory
 WORKDIR /app
 
+# Copy requirements first untuk caching Docker layers
+COPY requirements.txt .
+
 # Install Python dependencies
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
 
 # Expose port
 EXPOSE 5000
 
-# Start aplikasi
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:5000/health || exit 1
+
+# Start application
 CMD ["python", "app.py"]
