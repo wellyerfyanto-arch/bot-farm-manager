@@ -291,14 +291,16 @@ def check_chrome():
 def debug_chrome():
     """Debug endpoint untuk Chrome setup"""
     try:
-        from chrome_setup import check_chrome_availability, find_system_chromedriver
+        from chrome_setup import check_chrome_availability, find_system_chromedriver, get_browser_info
         
         chrome_available = check_chrome_availability()
         chromedriver_path = find_system_chromedriver()
+        browser_info = get_browser_info()
         
         return jsonify({
             'chrome_available': chrome_available,
             'chromedriver_path': chromedriver_path,
+            'browser_info': browser_info,
             'chrome_bin': os.environ.get('CHROME_BIN'),
             'chromedriver_path_env': os.environ.get('CHROMEDRIVER_PATH')
         })
