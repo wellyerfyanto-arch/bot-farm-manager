@@ -158,3 +158,18 @@ def delete_profile(device_id):
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=False)
+    # ... (semua kode route dan function tetap sama)
+
+if __name__ == "__main__":
+    port = int(os.environ.get('PORT', 5000))
+    
+    # Auto-detect environment
+    if os.environ.get('RAILWAY_ENVIRONMENT') or os.environ.get('PYTHON_ENV') == 'production':
+        # Production: Use Waitress
+        from waitress import serve
+        logger.info(f"🚀 Production server starting on port {port}")
+        serve(app, host='0.0.0.0', port=port)
+    else:
+        # Development: Use Flask dev server
+        logger.info(f"🔧 Development server starting on port {port}")
+        app.run(host='0.0.0.0', port=port, debug=False)
