@@ -8,9 +8,9 @@ from selenium.webdriver.chrome.service import Service
 logger = logging.getLogger(__name__)
 
 def setup_chrome_driver():
-    """Setup Chrome driver dengan system chromedriver"""
+    """Setup Chrome/Chromium driver untuk Railway"""
     try:
-        logger.info("Setting up Chrome driver with system chromedriver...")
+        logger.info("Setting up Chrome/Chromium driver for Railway...")
         
         # Setup Chrome options
         chrome_options = Options()
@@ -83,26 +83,77 @@ def find_system_chromedriver():
     return None
 
 def check_chrome_availability():
-    """Check if Chrome is available in the system"""
+    """Check if Chrome/Chromium is available in the system"""
     try:
-        # Cek Chrome
-        chrome_result = subprocess.run(['google-chrome', '--version'], capture_output=True, text=True, timeout=10)
-        if chrome_result.returncode == 0:
-            logger.info(f"Chrome available: {chrome_result.stdout.strip()}")
+        # Cek Chromium (bukan google-chrome)
+        chromium_result = subprocess.run(['chromium', '--version'], capture_output=True, text=True, timeout=10)
+        if chromium_result.returncode == 0:
+            logger.info(f"Chromium available: {chromium_result.stdout.strip()}")
+            chrome_available = True
         else:
-            logger.warning("Chrome version check failed")
-            return False
-            
+            # Fallback: cek google-chrome
+            chrome_result = subprocess.run(['google-chrome', '--version'], capture_output=True, text=True, timeout=10)
+            if chrome_result.returncode == 0:
+                logger.info(f"Chrome available: {chrome_result.stdout.strip()}")
+                chrome_available = True
+            else:
+                logger.warning("Both Chromium and Chrome version checks failed")
+                chrome_available = False
+        
         # Cek chromedriver
         driver_result = subprocess.run(['chromedriver', '--version'], capture_output=True, text=True, timeout=10)
         if driver_result.returncode == 0:
             logger.info(f"Chromedriver available: {driver_result.stdout.strip()}")
+            driver_available = True
         else:
             logger.warning("Chromedriver version check failed")
-            return False
+            driver_available = False
             
-        return True
+        return chrome_available and driver_available
         
+    except FileNotFoundError as e:
+        logger.warning(f"Browser binary not found: {e}")
+        return False
     except Exception as e:
         logger.warning(f"Chrome availability check failed: {e}")
         return False
+
+def get_browser_info():
+    """Get detailed browser information untuk debug"""
+    info = {
+        'chromium_available': False,
+        'chrome_available': False,
+        'chromedriver_available': False,
+        'chromium_version': None,
+        'chrome_version': None,
+        'chromedriver_version': None,
+        'environment_variables': {
+            'CHROME_BIN': os.environ.get('CHROME_BIN'),
+            'CHROME_PATH': os.environ.get('CHROME_PATH'),
+            'CHROMEDRIVER_PATH': os.environ.get('CHROMEDRIVER_PATH')
+        }
+    }
+    
+    try:
+        # Check Chromium
+        result = subprocess.run(['chromium', '--version'], capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            info['chromium_available'] = True
+            info['chromium_version'] = result.stdout.strip()
+        
+        # Check Chrome
+        result = subprocess.run(['google-chrome', '--version'], capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            info['chrome_available'] = True
+            info['chrome_version'] = result.stdout.strip()
+        
+        # Check Chromedriver
+        result = subprocess.run(['chromedriver', '--version'], capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            info['chromedriver_available'] = True
+            info['chromedriver_version'] = result.stdout.strip()
+            
+    except Exception as e:
+        logger.error(f"Error getting browser info: {e}")
+    
+    return info
