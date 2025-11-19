@@ -62,11 +62,11 @@ def setup_chrome_driver():
         driver.set_page_load_timeout(60)
         driver.implicitly_wait(10)
         
-        logger.info("✅ Chrome driver setup successfully for Railway")
+        logger.info("Chrome driver setup successfully for Railway")
         return driver
         
     except Exception as e:
-        logger.error(f"❌ Failed to setup Chrome driver: {e}")
+        logger.error("Failed to setup Chrome driver: %s", e)
         raise
 
 def check_chrome_availability():
@@ -83,5 +83,5 @@ def check_chrome_availability():
         driver.quit()
         return True
     except Exception as e:
-        logger.error(f"❌ Chrome not available: {e}")
+        logger.error("Chrome not available: %s", e)
         return False
