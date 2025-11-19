@@ -29,12 +29,8 @@ try:
     farm_manager = BotFarmManager()
     logger.info("Bot Farm Manager initialized successfully")
     
-    # Initialize Chrome environment
-    try:
-        from init_chrome import initialize_chrome_environment
-        initialize_chrome_environment()
-    except Exception as e:
-        logger.warning(f"Chrome initialization warning: {e}")
+    # Chrome environment sudah dihandle oleh Dockerfile, tidak perlu init_chrome
+    logger.info("Chrome environment should be available via Dockerfile installation")
         
 except Exception as e:
     logger.error("Failed to initialize Bot Farm Manager: %s", e)
@@ -290,6 +286,24 @@ def check_chrome():
             'chrome_available': False,
             'message': str(e)
         })
+
+@app.route('/api/debug/chrome')
+def debug_chrome():
+    """Debug endpoint untuk Chrome setup"""
+    try:
+        from chrome_setup import check_chrome_availability, find_system_chromedriver
+        
+        chrome_available = check_chrome_availability()
+        chromedriver_path = find_system_chromedriver()
+        
+        return jsonify({
+            'chrome_available': chrome_available,
+            'chromedriver_path': chromedriver_path,
+            'chrome_bin': os.environ.get('CHROME_BIN'),
+            'chromedriver_path_env': os.environ.get('CHROMEDRIVER_PATH')
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
 def create_app():
     return app
