@@ -157,10 +157,6 @@ def delete_profile(device_id):
         return jsonify({'status': 'error', 'message': str(e)})
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000, debug=False)
-    # ... (semua kode route dan function tetap sama)
-
-if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
     
     # Auto-detect environment
