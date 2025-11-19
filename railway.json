@@ -6,6 +6,8 @@
     "deploy": {
         "startCommand": "python app.py",
         "restartPolicyType": "ON_FAILURE",
-        "numReplicas": 1
+        "numReplicas": 1,
+        "healthcheckPath": "/health",
+        "healthcheckTimeout": 300
     }
 }
