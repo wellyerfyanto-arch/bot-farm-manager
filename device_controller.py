@@ -1,5 +1,3 @@
-[file name]: device_controller.py
-[file content begin]
 import os
 import time
 import random
@@ -913,4 +911,3 @@ class DeviceController:
             'session_duration': session_duration,
             'browser_type': 'chrome'
         }
-[file content end]
