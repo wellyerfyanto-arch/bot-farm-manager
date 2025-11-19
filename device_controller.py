@@ -674,4 +674,3 @@ class DeviceController:
             'session_duration': session_duration,
             'browser_type': 'chrome'
         }
-[file content end]
