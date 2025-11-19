@@ -12,8 +12,8 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler(sys.stdout),  # Use stdout for Railway
-        logging.StreamHandler(sys.stderr)   # Use stderr for errors
+        logging.StreamHandler(sys.stdout),
+        logging.StreamHandler(sys.stderr)
     ]
 )
 
@@ -242,6 +242,25 @@ def debug_info():
         'files_in_wd': os.listdir('.')
     }
     return jsonify(info)
+
+@app.route('/api/chrome/check')
+def check_chrome():
+    """Check Chrome availability"""
+    try:
+        from chrome_setup import check_chrome_availability
+        chrome_available = check_chrome_availability()
+        return jsonify({
+            'status': 'success',
+            'chrome_available': chrome_available,
+            'message': 'Chrome is available' if chrome_available else 'Chrome is not available'
+        })
+    except Exception as e:
+        logger.error("Chrome check failed: %s", e)
+        return jsonify({
+            'status': 'error',
+            'chrome_available': False,
+            'message': str(e)
+        })
 
 def create_app():
     return app
