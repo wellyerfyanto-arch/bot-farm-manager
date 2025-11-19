@@ -1,12 +1,11 @@
-import json
 import os
 import time
 import logging
 import shutil
 import sys
+import json
 from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
-from farm_manager import BotFarmManager
 
 # Setup proper logging for Railway
 logging.basicConfig(
@@ -26,6 +25,7 @@ CORS(app)
 
 # Initialize farm manager with error handling
 try:
+    from farm_manager import BotFarmManager
     farm_manager = BotFarmManager()
     logger.info("Bot Farm Manager initialized successfully")
 except Exception as e:
@@ -44,7 +44,13 @@ def start_farm():
             
         data = request.json
         devices_config = data.get('devices', [])
-        tasks_config = data.get('tasks', [])
+        tasks_config = data.get('tasks', {})
+        
+        # Force cleanup jika ada state yang stuck
+        if farm_manager.is_running:
+            logger.warning("Farm appears to be running, forcing cleanup before restart")
+            farm_manager.force_cleanup()
+            time.sleep(2)  # Beri waktu untuk cleanup
         
         if farm_manager.start_farm(devices_config, tasks_config):
             logger.info("Bot farm started successfully via API")
@@ -67,6 +73,20 @@ def stop_farm():
             return jsonify({'status': 'error', 'message': 'Farm manager not initialized'})
     except Exception as e:
         logger.error("Error stopping farm: %s", e)
+        return jsonify({'status': 'error', 'message': str(e)})
+
+@app.route('/api/farm/force-stop', methods=['POST'])
+def force_stop_farm():
+    """Force stop endpoint untuk cleanup state yang stuck"""
+    try:
+        if farm_manager:
+            farm_manager.force_cleanup()
+            logger.info("Farm force stopped via API")
+            return jsonify({'status': 'success', 'message': 'Farm force stopped'})
+        else:
+            return jsonify({'status': 'error', 'message': 'Farm manager not initialized'})
+    except Exception as e:
+        logger.error("Error force stopping farm: %s", e)
         return jsonify({'status': 'error', 'message': str(e)})
 
 @app.route('/api/farm/stats')
