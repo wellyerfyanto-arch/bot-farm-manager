@@ -4,5 +4,6 @@
     "task_interval_max": 300,
     "rotation_enabled": true,
     "proxy_rotation": true,
-    "headless": false
+    "headless": false,
+    "save_session": true
 }
