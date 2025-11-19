@@ -19,7 +19,10 @@ class BotFarmManager:
         self.is_running = False
         
         try:
-            # Import managers here to avoid circular imports
+            from .task_scheduler import TaskScheduler
+            from .profile_manager import ProfileManager
+            from .google_login import GoogleLoginManager
+        except ImportError:
             from task_scheduler import TaskScheduler
             from profile_manager import ProfileManager
             from google_login import GoogleLoginManager
