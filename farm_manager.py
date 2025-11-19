@@ -61,12 +61,12 @@ class BotFarmManager:
             logger.info("Loaded configuration from %s", config_file)
             return config
         except FileNotFoundError:
-            logger.warning("Config file %s not found, using defaults", config_file)
+            logger.warning("Config file %s not found, using Railway-optimized defaults", config_file)
             return {
-                "max_concurrent_devices": 2,
-                "task_interval_min": 180,
+                "max_concurrent_devices": 1,
+                "task_interval_min": 300,
                 "task_interval_max": 600,
-                "rotation_enabled": True,
+                "rotation_enabled": False,
                 "proxy_rotation": False,
                 "headless": True,
                 "save_session": True
@@ -74,10 +74,10 @@ class BotFarmManager:
         except Exception as e:
             logger.error("Error loading config: %s", e)
             return {
-                "max_concurrent_devices": 2,
-                "task_interval_min": 180,
+                "max_concurrent_devices": 1,
+                "task_interval_min": 300,
                 "task_interval_max": 600,
-                "rotation_enabled": True,
+                "rotation_enabled": False,
                 "proxy_rotation": False,
                 "headless": True,
                 "save_session": True
