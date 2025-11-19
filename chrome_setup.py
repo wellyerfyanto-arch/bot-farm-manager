@@ -3,15 +3,14 @@ import logging
 import subprocess
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 
 logger = logging.getLogger(__name__)
 
 def setup_chrome_driver():
-    """Setup Chrome driver using webdriver_manager for automatic version handling."""
+    """Setup Chrome driver dengan system chromedriver"""
     try:
-        logger.info("Setting up Chrome driver using webdriver_manager...")
+        logger.info("Setting up Chrome driver with system chromedriver...")
         
         # Setup Chrome options
         chrome_options = Options()
@@ -30,33 +29,80 @@ def setup_chrome_driver():
         chrome_options.add_argument('--allow-running-insecure-content')
         chrome_options.add_argument('--no-first-run')
         chrome_options.add_argument('--no-default-browser-check')
+        chrome_options.add_argument('--disable-dev-shm-usage')
         
-        # Use webdriver_manager to handle ChromeDriver
-        service = Service(ChromeDriverManager().install())
+        # Set user agent
+        chrome_options.add_argument('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+        
+        # Gunakan system chromedriver (dari apt installation)
+        chromedriver_path = find_system_chromedriver()
+        if not chromedriver_path:
+            raise RuntimeError("System chromedriver not found")
+            
+        logger.info(f"Using system chromedriver: {chromedriver_path}")
+        service = Service(chromedriver_path)
         driver = webdriver.Chrome(service=service, options=chrome_options)
         
         # Set timeouts
         driver.set_page_load_timeout(60)
         driver.implicitly_wait(10)
         
-        logger.info("Chrome driver setup successfully using webdriver_manager")
+        logger.info("Chrome driver setup successfully with system chromedriver")
         return driver
         
     except Exception as e:
-        logger.error(f"Failed to setup Chrome driver with webdriver_manager: {e}")
+        logger.error(f"Failed to setup Chrome driver: {e}")
         raise
 
-def check_chrome_availability():
-    """Check if Chrome is available in the system."""
+def find_system_chromedriver():
+    """Cari chromedriver di system paths"""
+    possible_paths = [
+        '/usr/bin/chromedriver',
+        '/usr/local/bin/chromedriver',
+        '/usr/lib/chromium-browser/chromedriver',
+        '/snap/bin/chromium.chromedriver'
+    ]
+    
+    for path in possible_paths:
+        if os.path.exists(path) and os.access(path, os.X_OK):
+            logger.info(f"Found executable chromedriver at: {path}")
+            return path
+    
+    # Coba dengan which command
     try:
-        # Try to get Chrome version
-        result = subprocess.run(['google-chrome', '--version'], capture_output=True, text=True, timeout=10)
+        result = subprocess.run(['which', 'chromedriver'], capture_output=True, text=True, timeout=10)
         if result.returncode == 0:
-            logger.info(f"Chrome is available: {result.stdout.strip()}")
-            return True
+            path = result.stdout.strip()
+            if os.path.exists(path):
+                logger.info(f"Found chromedriver via which: {path}")
+                return path
+    except Exception as e:
+        logger.warning(f"Which command failed: {e}")
+    
+    logger.error("No system chromedriver found")
+    return None
+
+def check_chrome_availability():
+    """Check if Chrome is available in the system"""
+    try:
+        # Cek Chrome
+        chrome_result = subprocess.run(['google-chrome', '--version'], capture_output=True, text=True, timeout=10)
+        if chrome_result.returncode == 0:
+            logger.info(f"Chrome available: {chrome_result.stdout.strip()}")
         else:
-            logger.warning("Chrome version check failed.")
+            logger.warning("Chrome version check failed")
             return False
+            
+        # Cek chromedriver
+        driver_result = subprocess.run(['chromedriver', '--version'], capture_output=True, text=True, timeout=10)
+        if driver_result.returncode == 0:
+            logger.info(f"Chromedriver available: {driver_result.stdout.strip()}")
+        else:
+            logger.warning("Chromedriver version check failed")
+            return False
+            
+        return True
+        
     except Exception as e:
         logger.warning(f"Chrome availability check failed: {e}")
         return False
